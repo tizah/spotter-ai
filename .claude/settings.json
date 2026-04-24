@@ -1,0 +1,30 @@
+{
+    "permissions": {
+      "defaultMode": "acceptEdits",
+      "allow": [
+        "Bash(npm *)",
+        "Bash(pnpm *)",
+        "Bash(yarn *)",
+        "Bash(pytest *)",
+        "Bash(python *)",
+        "Bash(pip *)",
+        "Bash(git status)",
+        "Bash(git diff*)",
+        "Bash(git log*)",
+        "Bash(git add*)",
+        "Bash(git commit*)",
+        "Bash(tsc *)",
+        "Bash(eslint *)",
+        "Bash(jest *)",
+        "Bash(terraform plan*)",
+        "Bash(kubectl get*)",
+        "Bash(docker ps*)"
+      ],
+      "deny": [
+        "Bash(rm -rf *)",
+        "Bash(git push --force*)",
+        "Bash(terraform destroy*)",
+        "Bash(kubectl delete*)"
+      ]
+    }
+  }
