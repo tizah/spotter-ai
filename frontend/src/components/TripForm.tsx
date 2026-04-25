@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Stack, Button, TextField, Paper, Typography, Alert } from '@mui/material';
+import {
+  Stack,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  Box,
+  LinearProgress,
+} from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Compass, Package, Flag, Clock } from 'lucide-react';
 import LocationAutocomplete, { type PlaceOption } from './LocationAutocomplete';
 import { usePlanTrip } from '../api/trips';
 import type { TripPlan } from '../types';
@@ -26,11 +35,21 @@ interface Props {
   onPlanned: (plan: TripPlan) => void;
 }
 
+function getCycleBarColor(value: number): 'success' | 'warning' | 'error' {
+  if (value >= 60) return 'error';
+  if (value >= 50) return 'warning';
+  return 'success';
+}
+
 export default function TripForm({ onPlanned }: Props) {
-  const { control, handleSubmit, register, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, register, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { cycle_hours_used: 0 } as Partial<FormValues>,
   });
+
+  const cycleValue = watch('cycle_hours_used') ?? 0;
+  const clampedCycle = Math.max(0, Math.min(70, Number(cycleValue) || 0));
+  const cyclePercent = (clampedCycle / 70) * 100;
 
   const planMutation = usePlanTrip();
   const [showColdStart, setShowColdStart] = useState(false);
@@ -53,81 +72,131 @@ export default function TripForm({ onPlanned }: Props) {
     onPlanned(result);
   });
 
+  const iconSx = { color: 'text.secondary', flexShrink: 0 };
+
   return (
-    <Paper sx={{ p: 4, maxWidth: 640, mx: 'auto' }}>
-      <Typography variant="h3" gutterBottom>
-        Plan a trip
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Enter the three locations and your cycle hours already used.
-        We'll plan rest, fuel, and pickup/dropoff stops under FMCSA 70-hour/8-day rules.
-      </Typography>
-
-      <Stack component="form" onSubmit={onSubmit} spacing={3}>
-        <Controller
-          name="current_location"
-          control={control}
-          render={({ field, fieldState }) => (
-            <LocationAutocomplete
-              label="Current location"
-              value={field.value as PlaceOption | null}
-              onChange={field.onChange}
-              error={!!fieldState.error}
-              helperText={fieldState.error?.message ?? fieldState.error?.root?.message}
-            />
-          )}
-        />
-        <Controller
-          name="pickup_location"
-          control={control}
-          render={({ field, fieldState }) => (
-            <LocationAutocomplete
-              label="Pickup location"
-              value={field.value as PlaceOption | null}
-              onChange={field.onChange}
-              error={!!fieldState.error}
-              helperText={fieldState.error?.message ?? fieldState.error?.root?.message}
-            />
-          )}
-        />
-        <Controller
-          name="dropoff_location"
-          control={control}
-          render={({ field, fieldState }) => (
-            <LocationAutocomplete
-              label="Drop-off location"
-              value={field.value as PlaceOption | null}
-              onChange={field.onChange}
-              error={!!fieldState.error}
-              helperText={fieldState.error?.message ?? fieldState.error?.root?.message}
-            />
-          )}
-        />
-        <TextField
-          label="Current cycle used (hours)"
-          type="number"
-          inputProps={{ min: 0, max: 70, step: 0.5 }}
-          helperText={errors.cycle_hours_used?.message ?? "How many hours you've already used in the current 8-day window"}
-          error={!!errors.cycle_hours_used}
-          {...register('cycle_hours_used', { valueAsNumber: true })}
-        />
-
-        {showColdStart && planMutation.isPending && (
-          <Alert severity="info">
-            Warming up the server — first request can take ~30s on the free tier.
-          </Alert>
+    <Stack component="form" onSubmit={onSubmit} spacing={3}>
+      <Controller
+        name="current_location"
+        control={control}
+        render={({ field, fieldState }) => (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <Box sx={{ ...iconSx, mt: 1 }}><Compass size={20} /></Box>
+            <Box sx={{ flex: 1 }}>
+              <LocationAutocomplete
+                label="Where are you now?"
+                value={field.value as PlaceOption | null}
+                onChange={field.onChange}
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? fieldState.error?.root?.message}
+              />
+            </Box>
+          </Box>
         )}
-
-        {planMutation.isError && (
-          <Alert severity="error">
-            Could not plan trip: {(planMutation.error as Error)?.message ?? 'Unknown error'}
-          </Alert>
+      />
+      <Controller
+        name="pickup_location"
+        control={control}
+        render={({ field, fieldState }) => (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <Box sx={{ ...iconSx, mt: 1 }}><Package size={20} /></Box>
+            <Box sx={{ flex: 1 }}>
+              <LocationAutocomplete
+                label="Where's the pickup?"
+                value={field.value as PlaceOption | null}
+                onChange={field.onChange}
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? fieldState.error?.root?.message}
+              />
+            </Box>
+          </Box>
         )}
+      />
+      <Controller
+        name="dropoff_location"
+        control={control}
+        render={({ field, fieldState }) => (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <Box sx={{ ...iconSx, mt: 1 }}><Flag size={20} /></Box>
+            <Box sx={{ flex: 1 }}>
+              <LocationAutocomplete
+                label="Where's it going?"
+                value={field.value as PlaceOption | null}
+                onChange={field.onChange}
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? fieldState.error?.root?.message}
+              />
+            </Box>
+          </Box>
+        )}
+      />
 
-        <Button type="submit" variant="contained" size="large" disabled={planMutation.isPending}>
-          {planMutation.isPending ? 'Planning…' : 'Plan trip'}
-        </Button>
-      </Stack>
-    </Paper>
+      {/* Cycle hours with live progress bar */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+        <Box sx={{ ...iconSx, mt: 1 }}><Clock size={20} /></Box>
+        <Box sx={{ flex: 1 }}>
+          <TextField
+            label="Cycle hours used"
+            type="number"
+            inputProps={{ min: 0, max: 70, step: 0.5 }}
+            helperText={errors.cycle_hours_used?.message ?? 'Hours used in your current 8-day window'}
+            error={!!errors.cycle_hours_used}
+            {...register('cycle_hours_used', { valueAsNumber: true })}
+          />
+          <Box sx={{ mt: 0.75, px: 0.5 }}>
+            <LinearProgress
+              variant="determinate"
+              value={cyclePercent}
+              color={getCycleBarColor(clampedCycle)}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: 'grey.100',
+                transition: 'none',
+                '& .MuiLinearProgress-bar': {
+                  transition: 'transform 0.2s ease, background-color 0.3s ease',
+                },
+              }}
+            />
+            <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mt: 0.5 }}>
+              <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>0</Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  color:
+                    clampedCycle >= 60 ? 'error.main' : clampedCycle >= 50 ? 'warning.main' : 'success.main',
+                }}
+              >
+                {clampedCycle.toFixed(1)}h used
+              </Typography>
+              <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>70</Typography>
+            </Stack>
+          </Box>
+        </Box>
+      </Box>
+
+      {showColdStart && planMutation.isPending && (
+        <Alert severity="info">
+          Warming up the server — first request can take ~30s on the free tier.
+        </Alert>
+      )}
+
+      {planMutation.isError && (
+        <Alert severity="error">
+          Could not plan trip: {(planMutation.error as Error)?.message ?? 'Unknown error'}
+        </Alert>
+      )}
+
+      <Button
+        type="submit"
+        variant="contained"
+        size="large"
+        disabled={planMutation.isPending}
+        sx={{ py: 1.5, fontSize: '1rem' }}
+      >
+        {planMutation.isPending ? 'Planning…' : 'Plan my trip'}
+      </Button>
+    </Stack>
   );
 }

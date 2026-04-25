@@ -1,5 +1,5 @@
 import { useMemo, forwardRef } from 'react';
-import { Paper, Typography, Stack, Box, GlobalStyles } from '@mui/material';
+import { Paper, Typography, Stack, Box, Chip, GlobalStyles } from '@mui/material';
 import type { DailyLog, DutyStatus } from '../types';
 import { getDayStart, timeToX } from '../utils/time';
 
@@ -8,9 +8,9 @@ import { getDayStart, timeToX } from '../utils/time';
 /* ------------------------------------------------------------------ */
 
 const VIEWBOX_W = 960;
-const VIEWBOX_H = 520;
+const VIEWBOX_H = 380;
 const GRID_X = 120;
-const GRID_Y = 200;
+const GRID_Y = 60;
 const GRID_W = 720; // 30 px/hr × 24 hrs
 const GRID_H = 120; // 30 px/row × 4 rows
 const HOUR_W = 30;
@@ -24,10 +24,10 @@ const ROW_ORDER: readonly DutyStatus[] = [
 ] as const;
 
 const ROW_Y: Record<DutyStatus, number> = {
-  off_duty: GRID_Y + ROW_H * 0.5,         // 215
-  sleeper_berth: GRID_Y + ROW_H * 1.5,    // 245
-  driving: GRID_Y + ROW_H * 2.5,          // 275
-  on_duty_not_driving: GRID_Y + ROW_H * 3.5, // 305
+  off_duty: GRID_Y + ROW_H * 0.5,
+  sleeper_berth: GRID_Y + ROW_H * 1.5,
+  driving: GRID_Y + ROW_H * 2.5,
+  on_duty_not_driving: GRID_Y + ROW_H * 3.5,
 };
 
 const ROW_LABELS: Record<DutyStatus, string> = {
@@ -35,6 +35,13 @@ const ROW_LABELS: Record<DutyStatus, string> = {
   sleeper_berth: 'Sleeper Berth',
   driving: 'Driving',
   on_duty_not_driving: 'On Duty',
+};
+
+const STATUS_LINE_COLORS: Record<DutyStatus, string> = {
+  off_duty: '#9e9e9e',       // grey[500]
+  sleeper_berth: '#616161',  // grey[700]
+  driving: '#1e40af',        // primary.main
+  on_duty_not_driving: '#ea580c', // warning.main
 };
 
 const HOUR_LABELS = [
@@ -60,6 +67,7 @@ const printStyles = (
           border: '1px solid #000',
         },
         '.log-sheet:last-child': { pageBreakAfter: 'auto' },
+        '.log-sheet .status-line': { stroke: '#000 !important' },
         '@page': { size: 'letter landscape', margin: '0.5in' },
       },
     }}
@@ -202,16 +210,18 @@ function StatusLines({
     const x1 = timeToX(ev.start, dayStart, GRID_X, HOUR_W);
     const x2 = timeToX(ev.end, dayStart, GRID_X, HOUR_W);
     const y = ROW_Y[ev.status];
+    const color = STATUS_LINE_COLORS[ev.status] ?? '#1e40af';
 
     // Horizontal line for this event
     elements.push(
       <line
         key={`h-${i}`}
+        className="status-line"
         x1={x1}
         y1={y}
         x2={x2}
         y2={y}
-        stroke="#1e40af"
+        stroke={color}
         strokeWidth={2.5}
         strokeLinecap="round"
       />,
@@ -224,11 +234,12 @@ function StatusLines({
         elements.push(
           <line
             key={`v-${i}`}
+            className="status-line"
             x1={x1}
             y1={prevY}
             x2={x1}
             y2={y}
-            stroke="#1e40af"
+            stroke={color}
             strokeWidth={2.5}
             strokeLinecap="round"
           />,
@@ -297,7 +308,7 @@ function Remarks({
   remarks: DailyLog['remarks'];
   dayStart: Date;
 }) {
-  const baseY = GRID_Y + GRID_H + 40;
+  const baseY = GRID_Y + GRID_H + 30;
 
   return (
     <g className="remarks">
@@ -347,6 +358,45 @@ function Remarks({
   );
 }
 
+function ContinuityCaptions({
+  dayIndex,
+  totalDays,
+}: {
+  dayIndex?: number;
+  totalDays?: number;
+}) {
+  if (dayIndex == null || totalDays == null || totalDays <= 1) return null;
+  const captionY = GRID_Y + GRID_H + 14;
+
+  return (
+    <g className="continuity-captions no-print">
+      {dayIndex > 0 && (
+        <text
+          x={GRID_X + 4}
+          y={captionY}
+          fontSize={7}
+          fontFamily="Arial, sans-serif"
+          fill="#888"
+        >
+          {'\u2190'} from Day {dayIndex}
+        </text>
+      )}
+      {dayIndex < totalDays - 1 && (
+        <text
+          x={GRID_X + GRID_W - 4}
+          y={captionY}
+          textAnchor="end"
+          fontSize={7}
+          fontFamily="Arial, sans-serif"
+          fill="#888"
+        >
+          continues on Day {dayIndex + 2} {'\u2192'}
+        </text>
+      )}
+    </g>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  LogHeader (MUI HTML above SVG)                                     */
 /* ------------------------------------------------------------------ */
@@ -356,11 +406,15 @@ function LogHeader({
   carrier,
   driver,
   vehicleNumbers,
+  dayIndex,
+  totalDays,
 }: {
   day: DailyLog;
   carrier?: { name: string; mainOfficeAddress: string };
   driver?: { fullName: string };
   vehicleNumbers?: string;
+  dayIndex?: number;
+  totalDays?: number;
 }) {
   const dateLabel = new Date(day.date + 'T12:00:00Z').toLocaleDateString(
     'en-US',
@@ -369,14 +423,27 @@ function LogHeader({
 
   return (
     <Stack spacing={1} sx={{ px: 2, pt: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Typography variant="h4">Driver&apos;s Daily Log</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {dateLabel}
-        </Typography>
+        {dayIndex != null && totalDays != null && (
+          <Chip
+            label={`Day ${dayIndex + 1} of ${totalDays}`}
+            size="small"
+            color="primary"
+            variant="outlined"
+          />
+        )}
       </Stack>
 
       <Stack direction="row" spacing={4} flexWrap="wrap" sx={{ typography: 'body2' }}>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Date
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {dateLabel}
+          </Typography>
+        </Box>
         <Box>
           <Typography variant="caption" color="text.secondary">
             Total Miles
@@ -426,6 +493,8 @@ interface LogSheetProps {
   driver?: { fullName: string };
   vehicleNumbers?: string;
   homeTerminalTimezone?: string;
+  dayIndex?: number;
+  totalDays?: number;
 }
 
 const LogSheet = forwardRef<HTMLDivElement, LogSheetProps>(function LogSheet(
@@ -435,6 +504,8 @@ const LogSheet = forwardRef<HTMLDivElement, LogSheetProps>(function LogSheet(
     driver,
     vehicleNumbers,
     homeTerminalTimezone = 'America/Chicago',
+    dayIndex,
+    totalDays,
   },
   ref,
 ) {
@@ -458,6 +529,8 @@ const LogSheet = forwardRef<HTMLDivElement, LogSheetProps>(function LogSheet(
           carrier={carrier}
           driver={driver}
           vehicleNumbers={vehicleNumbers}
+          dayIndex={dayIndex}
+          totalDays={totalDays}
         />
 
         <Box sx={{ px: 2, pb: 2 }}>
@@ -476,6 +549,7 @@ const LogSheet = forwardRef<HTMLDivElement, LogSheetProps>(function LogSheet(
             <GraphGrid />
             <StatusLines events={day.events} dayStart={dayStart} />
             <TotalsColumn totals={day.totals} />
+            <ContinuityCaptions dayIndex={dayIndex} totalDays={totalDays} />
             <Remarks remarks={day.remarks} dayStart={dayStart} />
           </svg>
 

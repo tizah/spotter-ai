@@ -2,33 +2,76 @@ import { useRef, useState, useCallback } from 'react';
 import {
   Stack,
   Button,
+  ButtonGroup,
   Typography,
   Alert,
   CircularProgress,
+  Paper,
+  Box,
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import DownloadIcon from '@mui/icons-material/Download';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import PrintIcon from '@mui/icons-material/Print';
 import type { TripPlan } from '../types';
-import SummaryCard from '../components/SummaryCard';
 import MapView from '../components/MapView';
 import EventTimeline from '../components/EventTimeline';
 import CycleBar from '../components/CycleBar';
 import LogSheet from '../components/LogSheet';
 import {
-  downloadLogSheetPng,
   downloadAllLogSheetsPdf,
+  downloadAllLogSheetsPng,
 } from '../utils/download';
+import { shortLabel } from '../utils/geo';
+
+function fmt(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 interface Props {
   plan: TripPlan;
-  onReset: () => void;
 }
 
-export default function TripResultPage({ plan, onReset }: Props) {
+function StatTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <Paper sx={{ p: 2, textAlign: 'center' }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </Typography>
+      <Box sx={{ mt: 0.5 }}>
+        <Typography
+          component="span"
+          sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.2 }}
+        >
+          {value}
+        </Typography>
+        {unit && (
+          <Typography
+            component="span"
+            sx={{ fontSize: '0.875rem', color: 'text.secondary', ml: 0.5 }}
+          >
+            {unit}
+          </Typography>
+        )}
+      </Box>
+    </Paper>
+  );
+}
+
+export default function TripResultPage({ plan }: Props) {
   const logSheetRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [pngLoading, setPngLoading] = useState<number | null>(null);
+  const [pngLoading, setPngLoading] = useState(false);
 
   const setLogSheetRef = useCallback(
     (index: number) => (el: HTMLDivElement | null) => {
@@ -51,35 +94,36 @@ export default function TripResultPage({ plan, onReset }: Props) {
 
     setPdfLoading(true);
     try {
-      await downloadAllLogSheetsPdf(elements, 'daily-logs.pdf');
+      await downloadAllLogSheetsPdf(elements, `trip-${shortId}-all-logs.pdf`);
     } finally {
       setPdfLoading(false);
     }
   };
 
-  const handleDownloadPng = async (index: number, date: string) => {
-    const el = logSheetRefs.current.get(index);
-    if (!el) return;
+  const handleDownloadAllPng = async () => {
+    const elements: HTMLElement[] = [];
+    for (let i = 0; i < plan.daily_logs.length; i++) {
+      const el = logSheetRefs.current.get(i);
+      if (el) elements.push(el);
+    }
+    if (elements.length === 0) return;
 
-    setPngLoading(index);
+    setPngLoading(true);
     try {
-      await downloadLogSheetPng(el, `log-${date}.png`);
+      await downloadAllLogSheetsPng(elements, `trip-${shortId}`, plan.daily_logs.length);
     } finally {
-      setPngLoading(null);
+      setPngLoading(false);
     }
   };
 
-  const { cycle_hours_remaining, warnings } = plan.summary;
+  const { summary, input } = plan;
+  const shortId = plan.id.slice(0, 8);
+  const { cycle_hours_remaining, warnings } = summary;
   const showBanner = cycle_hours_remaining < 10 || warnings.length > 0;
   const bannerSeverity = cycle_hours_remaining < 5 ? 'error' : 'warning';
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="h2">Trip Plan</Typography>
-        <Button variant="outlined" onClick={onReset}>New trip</Button>
-      </Stack>
-
       {showBanner && (
         <Alert
           severity={bannerSeverity}
@@ -109,7 +153,43 @@ export default function TripResultPage({ plan, onReset }: Props) {
         </Alert>
       )}
 
-      <SummaryCard summary={plan.summary} />
+      {/* One-sentence summary */}
+      <Typography variant="body1" color="text.secondary">
+        This {Math.round(summary.total_distance_miles).toLocaleString()} mi trip from{' '}
+        {shortLabel(input.current_location.label)} to {shortLabel(input.dropoff_location.label)} via{' '}
+        {shortLabel(input.pickup_location.label)} will take {fmt(summary.total_duration_hours)} and use{' '}
+        {summary.total_on_duty_hours.toFixed(1)} hours of your 70-hour cycle.
+      </Typography>
+
+      {/* Stat grid */}
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <StatTile
+            label="Total Distance"
+            value={Math.round(summary.total_distance_miles).toLocaleString()}
+            unit="mi"
+          />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <StatTile label="Total Time" value={fmt(summary.total_duration_hours)} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <StatTile label="Driving Time" value={fmt(summary.total_driving_hours)} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <StatTile label="On-Duty Time" value={fmt(summary.total_on_duty_hours)} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <StatTile
+            label="Cycle Before / After"
+            value={`${summary.cycle_hours_before.toFixed(1)} \u2192 ${summary.cycle_hours_after.toFixed(1)}`}
+            unit="h"
+          />
+        </Grid>
+        <Grid size={{ xs: 6, md: 4 }}>
+          <StatTile label="Shifts" value={String(summary.shifts_count)} />
+        </Grid>
+      </Grid>
 
       <Grid container spacing={3}>
         {/* Map — left 7/12 on desktop, full width on mobile */}
@@ -117,11 +197,11 @@ export default function TripResultPage({ plan, onReset }: Props) {
           <MapView plan={plan} />
         </Grid>
 
-        {/* Cycle bar + timeline — right 5/12 on desktop */}
+        {/* Cycle bar + timeline — right 5/12 on desktop, constrained to map height */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <Stack spacing={3}>
-            <CycleBar summary={plan.summary} />
-            <EventTimeline events={plan.events} />
+          <Stack spacing={3} sx={{ maxHeight: { md: 600 }, overflow: 'hidden' }}>
+            <CycleBar summary={summary} />
+            <EventTimeline events={plan.events} maxHeight={380} />
           </Stack>
         </Grid>
       </Grid>
@@ -134,16 +214,33 @@ export default function TripResultPage({ plan, onReset }: Props) {
         className="no-print"
       >
         <Typography variant="h3">Driver&apos;s Daily Logs</Typography>
-        <Button
-          variant="contained"
-          startIcon={
-            pdfLoading ? <CircularProgress size={18} color="inherit" /> : <DownloadIcon />
-          }
-          disabled={pdfLoading}
-          onClick={handleDownloadPdf}
-        >
-          Download All (PDF)
-        </Button>
+        <ButtonGroup variant="outlined" size="small">
+          <Button
+            variant="contained"
+            startIcon={
+              pdfLoading ? <CircularProgress size={18} color="inherit" /> : <DownloadIcon />
+            }
+            disabled={pdfLoading}
+            onClick={handleDownloadPdf}
+          >
+            PDF
+          </Button>
+          <Button
+            startIcon={
+              pngLoading ? <CircularProgress size={18} color="inherit" /> : <PhotoCameraIcon />
+            }
+            disabled={pngLoading}
+            onClick={handleDownloadAllPng}
+          >
+            PNG
+          </Button>
+          <Button
+            startIcon={<PrintIcon />}
+            onClick={() => window.print()}
+          >
+            Print
+          </Button>
+        </ButtonGroup>
       </Stack>
       {/* Print-only heading (without buttons) */}
       <Typography variant="h3" sx={{ display: 'none', '@media print': { display: 'block' } }}>
@@ -151,30 +248,16 @@ export default function TripResultPage({ plan, onReset }: Props) {
       </Typography>
 
       {plan.daily_logs.map((day, i) => (
-        <Stack key={day.date} spacing={1}>
-          <Button
-            size="small"
-            variant="text"
-            className="no-print"
-            startIcon={
-              pngLoading === i
-                ? <CircularProgress size={16} color="inherit" />
-                : <PhotoCameraIcon fontSize="small" />
-            }
-            disabled={pngLoading === i}
-            onClick={() => handleDownloadPng(i, day.date)}
-            sx={{ alignSelf: 'flex-end' }}
-          >
-            Save as PNG
-          </Button>
-          <LogSheet
-            ref={setLogSheetRef(i)}
-            day={day}
-            carrier={{ name: 'Spotter Demo Carrier', mainOfficeAddress: 'Chicago, IL' }}
-            driver={{ fullName: 'Demo Driver' }}
-            vehicleNumbers="Tractor 1234 / Trailer 5678"
-          />
-        </Stack>
+        <LogSheet
+          key={day.date}
+          ref={setLogSheetRef(i)}
+          day={day}
+          dayIndex={i}
+          totalDays={plan.daily_logs.length}
+          carrier={{ name: 'Demo Carrier Co.', mainOfficeAddress: 'Chicago, IL' }}
+          driver={{ fullName: 'Demo Driver' }}
+          vehicleNumbers="Tractor 1234 / Trailer 5678"
+        />
       ))}
     </Stack>
   );

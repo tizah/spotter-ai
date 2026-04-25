@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Paper,
   Typography,
@@ -9,8 +10,11 @@ import {
   TableRow,
   Chip,
   Box,
+  Button,
+  Stack,
 } from '@mui/material';
 import type { DutyEvent } from '../types';
+import { shortLabel } from '../utils/geo';
 
 const STATUS_COLORS: Record<string, 'success' | 'primary' | 'warning' | 'default'> = {
   driving: 'success',
@@ -26,13 +30,14 @@ const STATUS_ICONS: Record<string, string> = {
   sleeper_berth: 'SB',
 };
 
+const COLLAPSED_LIMIT = 8;
+
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const d = new Date(iso);
+  const month = d.toLocaleString(undefined, { month: 'short' });
+  const day = d.getDate();
+  const time = d.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${month} ${day} \u00b7 ${time}`;
 }
 
 function fmtDuration(ev: DutyEvent): string {
@@ -49,27 +54,38 @@ function statusLabel(status: string): string {
 
 interface Props {
   events: DutyEvent[];
+  maxHeight?: number;
 }
 
-export default function EventTimeline({ events }: Props) {
+export default function EventTimeline({ events, maxHeight }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const showToggle = events.length > COLLAPSED_LIMIT;
+  const visibleEvents = expanded ? events : events.slice(0, COLLAPSED_LIMIT);
+
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Event Timeline
-      </Typography>
-      <TableContainer sx={{ maxHeight: 480 }}>
+    <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 1 }}>
+        <Typography variant="h4">
+          Event Timeline
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {events.length} events
+        </Typography>
+      </Stack>
+      <TableContainer sx={{ maxHeight: expanded ? undefined : maxHeight, flex: 1 }}>
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Time</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Duration</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Location</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Note</TableCell>
               <TableCell sx={{ fontWeight: 600 }} align="right">Miles</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {events.map((ev, i) => (
+            {visibleEvents.map((ev, i) => (
               <TableRow
                 key={i}
                 sx={{
@@ -101,15 +117,29 @@ export default function EventTimeline({ events }: Props) {
                     variant="outlined"
                   />
                 </TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary', fontSize: '0.75rem' }}>
+                  {ev.location ? shortLabel(ev.location.label) : '\u2014'}
+                </TableCell>
                 <TableCell>{ev.note}</TableCell>
                 <TableCell align="right">
-                  {ev.miles > 0 ? `${Math.round(ev.miles)}` : '—'}
+                  {ev.miles > 0 ? `${Math.round(ev.miles)}` : '\u2014'}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+      {showToggle && (
+        <Button
+          size="small"
+          onClick={() => setExpanded(!expanded)}
+          sx={{ mt: 1, alignSelf: 'center' }}
+        >
+          {expanded
+            ? 'Collapse'
+            : `Show all ${events.length} events`}
+        </Button>
+      )}
     </Paper>
   );
 }

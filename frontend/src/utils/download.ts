@@ -65,3 +65,18 @@ export async function downloadAllLogSheetsPdf(
 
   pdf.save(filename);
 }
+
+export async function downloadAllLogSheetsPng(
+  elements: HTMLElement[],
+  prefix: string,
+  totalDays: number,
+): Promise<void> {
+  for (let i = 0; i < elements.length; i++) {
+    const filename = `${prefix}-log-day-${i + 1}-of-${totalDays}.png`;
+    await downloadLogSheetPng(elements[i], filename);
+    // Small delay between downloads to avoid browser blocking
+    if (i < elements.length - 1) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+}

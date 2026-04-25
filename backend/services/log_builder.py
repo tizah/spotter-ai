@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, tzinfo
 
+from services.geocoding import to_short_label
 from services.types import DailyLog, DutyEvent, DutyStatus, GeoPoint, Remark
 
 
@@ -77,9 +78,26 @@ def build_daily_logs(
 
             total_miles += clip_miles
 
-            # Track location changes for remarks
-            if ev.location and clip_start == ev.start:
-                remarks.append(Remark(time=clip_start, location=ev.location))
+            # Track location changes for remarks — emit at every
+            # status transition that has a location within this day
+            if ev.location:
+                short = to_short_label(ev.location.label)
+                # Avoid duplicate remarks at the same time + location
+                dup = any(
+                    r.time == clip_start and r.location.label == short
+                    for r in remarks
+                )
+                if not dup:
+                    remarks.append(
+                        Remark(
+                            time=clip_start,
+                            location=GeoPoint(
+                                lat=ev.location.lat,
+                                lon=ev.location.lon,
+                                label=short,
+                            ),
+                        )
+                    )
 
         # Compute totals per status
         totals: dict[DutyStatus, float] = {

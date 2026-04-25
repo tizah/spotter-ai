@@ -11,6 +11,35 @@ from services.types import GeoPoint
 
 logger = logging.getLogger(__name__)
 
+_US_STATES: dict[str, str] = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
+    "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
+    "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
+    "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+    "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY",
+    "District of Columbia": "DC",
+}
+
+
+def to_short_label(label: str) -> str:
+    """Shorten a Nominatim label like 'Indianapolis, Marion County, Indiana,
+    United States' to 'Indianapolis, IN'."""
+    parts = [p.strip() for p in label.split(",")]
+    for i, part in enumerate(parts):
+        abbr = _US_STATES.get(part)
+        if abbr is not None and i > 0:
+            return f"{parts[0]}, {abbr}"
+    # Fallback: first two comma-separated parts
+    return ", ".join(parts[:2]) if len(parts) >= 2 else label
+
 
 class NominatimGeocoder:
     """Forward-geocodes via the Nominatim public server.

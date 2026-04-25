@@ -29,6 +29,35 @@ export const theme = createTheme({
     button: { textTransform: 'none', fontWeight: 600 },
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        // Leaflet popup overrides to match MUI theme
+        '.leaflet-popup-content-wrapper': {
+          borderRadius: '8px !important',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12) !important',
+          fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif',
+          fontSize: '0.8125rem',
+          lineHeight: 1.55,
+          padding: '4px 8px',
+        },
+        '.leaflet-popup-content': {
+          margin: '8px 12px !important',
+        },
+        '.leaflet-popup-tip': {
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12) !important',
+        },
+        '.leaflet-popup-close-button': {
+          color: '#1e40af !important',
+          fontSize: '18px !important',
+          width: '24px !important',
+          height: '24px !important',
+          lineHeight: '24px !important',
+        },
+        '.leaflet-popup-close-button:hover': {
+          color: '#1e3a8a !important',
+        },
+      },
+    },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
