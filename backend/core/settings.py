@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
+    "drf_spectacular_sidecar",
     "corsheaders",
     "api",
 ]
@@ -26,9 +27,23 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+]
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+            ],
+        },
+    },
 ]
 
 ROOT_URLCONF = "core.urls"
@@ -43,17 +58,10 @@ DATABASES = {
 }
 
 CACHES = {
-    "default": (
-        {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "spotter",
-        }
-        if DEBUG
-        else {
-            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-            "LOCATION": "cache_table",
-        }
-    )
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "spotter",
+    }
 }
 
 REST_FRAMEWORK = {
@@ -61,6 +69,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.AnonRateThrottle"],
     "DEFAULT_THROTTLE_RATES": {"anon": "60/minute"},
+    "EXCEPTION_HANDLER": "api.exceptions.service_aware_exception_handler",
 }
 
 SPECTACULAR_SETTINGS = {
@@ -68,6 +77,8 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "DESCRIPTION": "Plans FMCSA-compliant trips for property-carrying drivers.",
     "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
 }
 
 CORS_ALLOWED_ORIGINS = [

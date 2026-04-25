@@ -49,3 +49,4 @@ coverage/
 
 # Claude
 .claude/memory/
+CLAUDE.md

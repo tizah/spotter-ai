@@ -60,12 +60,18 @@ class TripSummary:
 
 
 @dataclass(frozen=True)
+class Remark:
+    time: datetime
+    location: GeoPoint
+
+
+@dataclass(frozen=True)
 class DailyLog:
     date: str  # YYYY-MM-DD in driver's home terminal tz
     events: list[DutyEvent]  # clipped to this calendar day
     totals: dict[DutyStatus, float]  # hours per status, must sum to 24
     total_miles: float
-    remarks: list[tuple[datetime, GeoPoint]]  # location changes
+    remarks: list[Remark]  # location changes
 
 
 @dataclass(frozen=True)
