@@ -1,7 +1,5 @@
 # Spotter Trip Planner — Project Context
 
-This is a take-home assessment for Spotter.ai (Full-Stack Engineer role). The goal is to **get hired**, not just to pass the assignment. Every decision in this repo should be defensible as a senior-engineer choice.
-
 ## What this app does (one paragraph)
 
 A property-carrying truck driver inputs their current location, pickup, dropoff, and cycle hours already used in their current 8-day window. The app plans the trip under FMCSA Hours of Service rules (70-hour/8-day): it simulates the trip forward in time, inserts mandatory 30-minute breaks, 10-hour off-duty resets, and fuel stops, then renders (a) an interactive map with the full route and all stops, and (b) one or more FMCSA-compliant Driver's Daily Log sheets drawn as SVG, covering every calendar day the trip spans.
