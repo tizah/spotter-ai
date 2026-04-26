@@ -2,6 +2,9 @@
 
 FMCSA-compliant trip planner for property-carrying truck drivers. Plans rest stops, fuel stops, and generates Driver's Daily Log sheets under **70-hour/8-day** Hours of Service rules.
 
+## LOOM VIDEO 
+[Video Recording](https://www.loom.com/share/f23fded4830343b2bf513a883f565576)
+
 ## Quick Start
 
 ```bash
